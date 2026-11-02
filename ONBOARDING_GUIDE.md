@@ -4,7 +4,9 @@ Everything you need to bring a skill, plugin, or MCP server into the AI5 Marketp
 
 > **You keep and maintain your own repository.** You do not fork or PR into `agentic-plugins` — that repo is the AI5 team's reference implementation only. Your repo must follow the same structure (§1) and ship its own CI. This is the N-repos model: every team's skills/plugins/MCPs live in their own repo, not one shared one.
 
-**Last verified: 2026-10-27.**
+**AI5 Marketplace vs catalog.redhat.com:** This guide covers AI5 contributor setup (repo layout, Compass, Konflux evaluation). Customer discovery on the public Red Hat Ecosystem Catalog is a **separate step**. Compass registration and evaluation do **not** by themselves publish a listing to [catalog.redhat.com](https://catalog.redhat.com). See [§7 Customer discovery on catalog.redhat.com](#7-customer-discovery-on-catalogredhatcom).
+
+**Last verified: 2026-11-02.**
 
 **Steps:**
 
@@ -17,6 +19,7 @@ Everything you need to bring a skill, plugin, or MCP server into the AI5 Marketp
    - [5.1 Skill evaluation](#51-skill-evaluation)
    - [5.2 MCP evaluation](#52-mcp-evaluation)
 6. [Push and what happens next](#6-push-and-what-happens-next)
+7. [Customer discovery on catalog.redhat.com](#7-customer-discovery-on-catalogredhatcom)
 
 ## 0. Prerequisites
 
@@ -53,7 +56,7 @@ What each piece is for:
 - **`catalog-info.yaml` (root)** — Compass entry point for your whole repo; lists your `system.yaml` and every plugin's own `catalog-info.yaml`.
 - **`system.yaml`** — the Compass System representing your repo as a whole; every plugin you add belongs to it.
 - **`<plugin>/`** — one directory per plugin (§2 on what counts as a plugin). Its own `catalog-info.yaml` indexes the plugin's manifest and skills; `AGENTS.md` is required (persona, skill routing, MCP servers, global rules); `mcps.json` only if the plugin wires up MCP servers.
-- **`.catalog/`** — the one *generated* directory in this tree; everything else is hand-authored and is the source of truth. In `agentic-plugins` itself it's regenerated from `SKILL.md`/`AGENTS.md`/`README.md` by a Claude Code skill; that tooling isn't available outside that repo yet, so write `.catalog/collection.yaml` by hand following [`COLLECTION_SPEC.md`](https://github.com/RHEcosystemAppEng/agentic-plugins/blob/main/COLLECTION_SPEC.md) — it needs `maturity: ORANGE` (until evaluated, then `GREEN`) and a roster entry per skill. `agentic-catalog` clones your repo and reads this file directly to build the public listing, so a missing or malformed one means your plugin silently never appears there.
+- **`.catalog/`** — the one *generated* directory in this tree; everything else is hand-authored and is the source of truth. In `agentic-plugins` itself it's regenerated from `SKILL.md`/`AGENTS.md`/`README.md` by a Claude Code skill; that tooling isn't available outside that repo yet, so write `.catalog/collection.yaml` by hand following [`COLLECTION_SPEC.md`](https://github.com/RHEcosystemAppEng/agentic-plugins/blob/main/COLLECTION_SPEC.md) — it needs `maturity: ORANGE` (until evaluated, then `GREEN`) and a roster entry per skill. The AI5 / `agentic-catalog` marketplace path clones your repo and reads this file to build the **AI5 Marketplace** listing; a missing or malformed file means your plugin may never appear there. **This is not the same as listing on [catalog.redhat.com](https://catalog.redhat.com)** (see §7). Compass maturity colors (`ORANGE` / `GREEN`) are quality signals for that marketplace path; they are **not** the go-live switch for the public Ecosystem Catalog.
 - **`mcps/`** — one manifest (`<name>.yaml`) and one mock schema (`<name>-schema.json`, §5.2) per MCP server used anywhere in your repo.
 - **`submissions/<plugin>/<skill>/`** — the evaluation submission for each skill (§5.1).
 
@@ -161,6 +164,8 @@ Registration steps (performed today by an AI5 team member on your behalf):
 
 > ⚠️ **Manual today, not self-service for contributors.** A contributor can't trigger this themselves yet — it's done by an AI5 team member. **[APPENG-6233](https://redhat.atlassian.net/browse/APPENG-6233)** is designing a more scalable version of this; nothing is decided or built yet.
 
+> ⚠️ **Compass registration ≠ catalog.redhat.com.** Seeing your entities in Compass (including staging) does not put them on the public Ecosystem Catalog. For customer-facing discovery, continue with §7.
+
 Reach out via the channel in Contacts once §3 is done to get your repo registered for the first time.
 
 ## 5. Marketplace evaluations
@@ -203,11 +208,52 @@ python scripts/extract_mcp_schema.py --url http://127.0.0.1:8080/mcp --output /p
 
 > ⚠️ Still open: today's pipeline only wires mocks for `lightspeed-mcp` and `openshift-mcp-server`, and deploys one mock per MCP for the whole run, not per case — the per-case fixtures layout above is the target design, not yet built. Ask (see Contacts) before depending on it for a real submission.
 
+> ⚠️ **MCP on catalog.redhat.com is a different path.** Compass `MCPServer` manifests and Konflux MCP mocks support AI5 quality and skill-with-MCP testing. A public MCP listing on the Ecosystem Catalog uses the **container / Pyxis** track (stricter vetting), not “my `mcps/*.yaml` alone.” See §7.
+
 ## 6. Push and what happens next
 
 Commit to your own repo, your own workflow. Compass registration (§4) is separate from, and doesn't by itself trigger, automated evaluation — **how your repo gets wired into the Konflux evaluation pipeline is not yet defined** (**[APPENG-6233](https://redhat.atlassian.net/browse/APPENG-6233)**) — likely a `repository`/`path`/`ref` entry in `agentic-catalog`'s marketplace YAML plus a Konflux `Component`, but unconfirmed. Ask (see Contacts) before assuming a push triggers anything automatically.
 
 Once wired in, expect (per `agentic-plugins`' own pipeline): Tier 1/2 lint + security scan + cheap evaluation checks on every PR (hard-fail on error); the expensive LLM-based evaluation only runs after merge, and only if the merge carried an `evaluate` label.
+
+Pushing and passing evaluation also does **not** automatically create or update a listing on [catalog.redhat.com](https://catalog.redhat.com). See §7.
+
+## 7. Customer discovery on catalog.redhat.com
+
+Customers find Red Hat agentic assets on the **Red Hat Ecosystem Catalog**:
+
+- AI hub: [catalog.redhat.com/en/ai](https://catalog.redhat.com/en/ai)
+- Skills / agent plugins index: [catalog.redhat.com/en/ai/skills](https://catalog.redhat.com/en/ai/skills)
+- Detail URLs use a frozen `catalogUrlId` segment: `/en/ai/skills/detail/{catalogUrlId}`
+
+**Do not conflate** AI5 Marketplace / `.catalog/collection.yaml` / Compass maturity with public catalog listing.
+
+### Two publish tracks (same hub, different systems)
+
+| Track | Asset | How it reaches catalog.redhat.com |
+| --- | --- | --- |
+| **A · Plugins and skills** | Agent plugins (customer-facing title pattern: **agent plugin for {audience}**) and skills | **Today:** coordinated metadata / JSON handoff after review. **Target:** `catalog-info.yaml` in Git → Compass sync → Solr (`documentKind: AgenticPlugin`) → catalog.redhat.com. **No Pyxis** for agent plugins v1. |
+| **B · MCP servers** | Vetted MCP servers for public discovery | **Container path** → certification / packaging → **Pyxis** → GraphQL / Solr, with MCP typing as it lands. Stricter than skills. Do **not** use the deprecated community MCP hub (`/en/categories/ai/mcpservers`) for new intake. |
+
+### Catalog listing gate (plugins / skills)
+
+Compass maturity (`ORANGE` / `GREEN`, or other scorecards) is related quality signal and is **not** required to be the catalog go-live switch.
+
+For a public listing, expect at least:
+
+- Complete customer-facing listing metadata (identity, descriptions, support, license / legal links, install copy)
+- `distribution: external` (or equivalent) when that flag drives eligibility
+- Customer-readiness review of listing copy before external publish
+
+Required field names and brand rules for catalog listings are owned with Ecosystem Catalog product management. Start from the [Publishing agentic assets](https://docs.google.com/document/d/1u2-ucdVh48GU8dGO-dxmRNGInqJ7H3ouEHEK4ee3Qvc/edit) guide and ask in `#forum-rhec` / `#wg-lightforge-skills` for the current publisher contract (including `catalogId`, `catalogUrlId`, `kind: AgenticPlugin`, support fields).
+
+### Evaluation results on the public catalog
+
+Konflux / AI5 evaluation artifacts may later appear on catalog.redhat.com via Compass → Solr (catalog work tracked under [RHEC-5119](https://redhat.atlassian.net/browse/RHEC-5119)). That UI is separate from “GREEN in `.catalog/`.” Until that ships, do not assume customers see eval status on catalog pages.
+
+### Automated catalog publish status
+
+Automated plugin publish (Compass → Solr → catalog) is in progress under [RHEC-5032](https://redhat.atlassian.net/browse/RHEC-5032). Until that path is live for your repo, expect **coordination** (not self-service click-to-publish) for catalog.redhat.com.
 
 ## Open items — ask before assuming
 
@@ -217,13 +263,17 @@ Once wired in, expect (per `agentic-plugins`' own pipeline): Tier 1/2 lint + sec
 4. Per-case MCP mock fixtures (§5.2) — design only, not built.
 5. Konflux token cost of per-case mock deployment, if/when built.
 6. Lola's native OCI/plugin install support — in flux upstream; check the current state before documenting a specific command.
+7. When contributor repos cut over from manual catalog JSON handoff to automated Compass → Solr publish (**[RHEC-5032](https://redhat.atlassian.net/browse/RHEC-5032)**).
+8. How skill / plugin evaluation results are shown on catalog.redhat.com (**[RHEC-5119](https://redhat.atlassian.net/browse/RHEC-5119)**).
 
 ## Contacts
 
 Slack channels:
 
-- **`#forum-ai5-marketplace-onboarding`** — questions about any step in this guide: plugins, skills, MCPs, evaluation, or publishing.
+- **`#forum-ai5-marketplace-onboarding`** — questions about any step in this guide: plugins, skills, MCPs, evaluation, or AI5 Marketplace publishing.
 - **`#forum-compass`** — Compass-specific questions (manifests, registration, the Compass Assistant).
+- **`#wg-lightforge-skills`** — skills / plugin federation and catalog listing coordination.
+- **`#forum-rhec`** — Red Hat Ecosystem Catalog (catalog.redhat.com) questions: should this be public, listing metadata, `/en/ai` routes.
 
 Compass also has its own MCP server (**[UIEINFRA-841](https://redhat.atlassian.net/browse/UIEINFRA-841)**), powering the in-app Compass Assistant — it can answer questions about entities, relationships, and scorecards directly. Ask in `#forum-compass` for current setup/connection details.
 
@@ -231,7 +281,12 @@ Compass also has its own MCP server (**[UIEINFRA-841](https://redhat.atlassian.n
 |---|---|
 | AI5 Marketplace — plugins, skills, MCPs, evaluation, publishing | Alejandro Villegas (avillega@redhat.com), Shimon Tanny (stanny@redhat.com) |
 | Compass — manifests, namespaces, registration | Mayur Deshmukh (mdeshmuk@redhat.com) |
+| catalog.redhat.com — public listing eligibility, `/en/ai`, publisher contract | Brett Williams (brewilli@redhat.com); Slack `#forum-rhec` |
 
 ## Useful links
 
 - [Compass — Get Started](https://compass.redhat.com/docs/compass/system/compass-platform/get-started/)
+- [catalog.redhat.com/en/ai](https://catalog.redhat.com/en/ai) · [catalog.redhat.com/en/ai/skills](https://catalog.redhat.com/en/ai/skills)
+- [Publishing agentic assets (Google Doc)](https://docs.google.com/document/d/1u2-ucdVh48GU8dGO-dxmRNGInqJ7H3ouEHEK4ee3Qvc/edit)
+- [RHEC-5032](https://redhat.atlassian.net/browse/RHEC-5032) — automated AI asset publishing (Compass → Solr → catalog)
+- [Federation request guide](https://github.com/RHEcosystemAppEng/agentic-collections/blob/main/FEDERATION_REQUEST_GUIDE.md) (confirm current repo name if collections were renamed to plugins)
